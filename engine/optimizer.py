@@ -72,7 +72,7 @@ class ONNXOptimizer:
             
             # Configure simplification
             simplify_args = {
-                'onnx_model': model,
+                'model': model,
                 'check_n': 3 if level >= 2 else 0,
                 'perform_optimization': True,
                 'skip_fuse_bn': False,
