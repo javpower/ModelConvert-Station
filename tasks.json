@@ -17,7 +17,8 @@
         "input_names": ["input"],
         "output_names": ["output"],
         "opset_version": 17,
-        "do_constant_folding": true
+        "do_constant_folding": true,
+        "model_architecture": "resnet50"
       },
       "tags": ["example", "pytorch", "classification"],
       "description": "Example: ResNet50 from PyTorch Hub (replace with your URL)"

@@ -75,7 +75,7 @@ class PyTorchTranslator:
         logger.info(f"🔄 Converting PyTorch model: {input_path.name}")
         
         # Load model
-        model = self._load_model(input_path)
+        model = self._load_model(input_path, custom_args)
         
         # Determine input shape
         if not config.input_shape:
@@ -120,8 +120,10 @@ class PyTorchTranslator:
             logger.error(f"❌ PyTorch export failed: {e}")
             raise
     
-    def _load_model(self, input_path: Path) -> torch.nn.Module:
+    def _load_model(self, input_path: Path, custom_args: Optional[Dict[str, Any]] = None) -> torch.nn.Module:
         """Load PyTorch model from file."""
+        
+        custom_args = custom_args or {}
         
         try:
             # Try loading as a complete model
@@ -140,13 +142,15 @@ class PyTorchTranslator:
             if isinstance(model, dict):
                 logger.info("📋 Detected state_dict, attempting to reconstruct model...")
                 # Try to reconstruct model from torchvision
-                reconstructed_model = self._reconstruct_model_from_state_dict(model, input_path)
+                # First check if model_architecture is specified in custom_args
+                model_arch = custom_args.get('model_architecture')
+                reconstructed_model = self._reconstruct_model_from_state_dict(model, input_path, model_arch)
                 if reconstructed_model is not None:
                     return reconstructed_model
                 raise ValueError(
                     "Checkpoint contains only state_dict. "
                     "Could not auto-detect model architecture. "
-                    "Please provide the complete model or specify architecture in custom_args."
+                    "Please provide the complete model or specify 'model_architecture' in custom_args."
                 )
             
             if not isinstance(model, torch.nn.Module):
@@ -161,15 +165,20 @@ class PyTorchTranslator:
     def _reconstruct_model_from_state_dict(
         self,
         state_dict: dict,
-        input_path: Path
+        input_path: Path,
+        model_arch: Optional[str] = None
     ) -> Optional[torch.nn.Module]:
         """Try to reconstruct model from state_dict using torchvision."""
         
         try:
             import torchvision.models as models
             
-            # Get model name from file path
-            model_name = input_path.stem.lower()
+            # Get model name from custom_args or file path
+            if model_arch:
+                model_name = model_arch.lower()
+                logger.info(f"📋 Using specified model architecture: {model_arch}")
+            else:
+                model_name = input_path.stem.lower()
             
             # Map common model names to torchvision models
             model_mapping = {
