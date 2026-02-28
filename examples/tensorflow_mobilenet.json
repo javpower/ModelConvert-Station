@@ -1,0 +1,19 @@
+{
+  "_comment": "TensorFlow MobileNet v2 转换示例",
+  "tasks": [
+    {
+      "id": "mobilenetv2_tf",
+      "source_url": "https://storage.googleapis.com/mobilenet_v2/checkpoints/mobilenet_v2_1.0_224.tgz",
+      "source_framework": "tensorflow",
+      "optimization_level": 2,
+      "custom_args": {
+        "input_names": ["input"],
+        "output_names": ["output"],
+        "opset_version": 17,
+        "inputs_as_nchw": ["input"]
+      },
+      "tags": ["tensorflow", "classification", "mobilenet"],
+      "description": "MobileNet v2 from TensorFlow Hub"
+    }
+  ]
+}

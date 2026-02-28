@@ -1,0 +1,46 @@
+# ModelConvert-Station Core Dependencies
+# These are pre-installed in GitHub Actions, listed for reference
+
+# Async HTTP client for streaming downloads
+aiohttp==3.9.1
+aiofiles==23.2.1
+
+# Google Drive download support
+gdown==4.7.1
+
+# HTTP requests
+requests==2.31.0
+
+# JSON Schema validation
+jsonschema==4.20.0
+
+# Template engine for Java code generation
+jinja2==3.1.2
+
+# ONNX ecosystem
+onnx==1.15.0
+onnxruntime==1.16.3
+onnx-simplifier==0.4.35
+
+# Protocol Buffers
+protobuf==4.25.1
+
+# Numerical computing
+numpy==1.24.3
+
+# Image processing
+pillow==10.1.0
+
+# PyTorch (CPU version for CI)
+torch==2.1.2
+torchvision==0.16.2
+--index-url https://download.pytorch.org/whl/cpu
+
+# TensorFlow (CPU version for faster install)
+tensorflow-cpu==2.15.0
+
+# TensorFlow to ONNX converter
+tf2onnx==1.16.0
+
+# MediaPipe for task file parsing
+mediapipe==0.10.8

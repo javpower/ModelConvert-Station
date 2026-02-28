@@ -1,0 +1,197 @@
+name: ModelConvert Pipeline
+
+on:
+  push:
+    paths:
+      - 'tasks.json'
+  workflow_dispatch:
+    inputs:
+      task_index:
+        description: 'Specific task index to run (empty for all pending)'
+        required: false
+        default: ''
+
+env:
+  PYTHON_VERSION: '3.10'
+  ONNXRUNTIME_VERSION: '1.16.3'
+
+jobs:
+  validate-and-convert:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache Python Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Core Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            aiohttp==3.9.1 \
+            aiofiles==23.2.1 \
+            gdown==4.7.1 \
+            requests==2.31.0 \
+            jsonschema==4.20.0 \
+            jinja2==3.1.2 \
+            onnx==1.15.0 \
+            onnxruntime==${{ env.ONNXRUNTIME_VERSION }} \
+            onnx-simplifier==0.4.35 \
+            protobuf==4.25.1 \
+            numpy==1.24.3 \
+            pillow==10.1.0
+
+      - name: Install Framework-Specific Dependencies
+        run: |
+          # PyTorch ecosystem
+          pip install torch==2.1.2 torchvision==0.16.2 --index-url https://download.pytorch.org/whl/cpu
+          
+          # TensorFlow ecosystem (CPU only for faster install)
+          pip install tensorflow-cpu==2.15.0 tf2onnx==1.16.0
+          
+          # MediaPipe for task file parsing
+          pip install mediapipe==0.10.8
+
+      - name: Validate Task Schema
+        id: validate
+        run: |
+          echo "🔍 Validating tasks.json against schema..."
+          python -c "
+          import json
+          import jsonschema
+          import sys
+          
+          with open('schema/task_schema.json', 'r') as f:
+              schema = json.load(f)
+          
+          with open('tasks.json', 'r') as f:
+              tasks = json.load(f)
+          
+          try:
+              jsonschema.validate(tasks, schema)
+              print('✅ Schema validation passed')
+              print(f'📋 Found {len(tasks.get(\"tasks\", []))} task(s)')
+          except jsonschema.exceptions.ValidationError as e:
+              print(f'❌ Schema validation failed: {e.message}')
+              print(f'   Path: {list(e.path)}')
+              sys.exit(1)
+          "
+
+      - name: Execute Conversion Pipeline
+        id: convert
+        env:
+          TASK_INDEX: ${{ github.event.inputs.task_index }}
+        run: |
+          echo "🚀 Starting conversion pipeline..."
+          cd engine && python main.py --tasks ../tasks.json --output ../outputs
+
+      - name: Inspect ONNX Artifacts
+        run: |
+          echo "🔍 Inspecting generated ONNX models..."
+          find outputs -name "*.onnx" -type f | while read model; do
+            echo "----------------------------------------"
+            echo "📦 Model: $model"
+            python -c "
+          import onnx
+          import sys
+          model = onnx.load('$model')
+          onnx.checker.check_model(model)
+          print(f'   ✅ ONNX validation passed')
+          
+          # Print I/O info
+          print(f'   📥 Inputs:')
+          for inp in model.graph.input:
+              shape = [d.dim_value if d.dim_value else d.dim_param for d in inp.type.tensor_type.shape.dim]
+              dtype = onnx.TensorProto.DataType.Name(inp.type.tensor_type.elem_type)
+              print(f'      - {inp.name}: {shape} ({dtype})')
+          
+          print(f'   📤 Outputs:')
+          for out in model.graph.output:
+              shape = [d.dim_value if d.dim_value else d.dim_param for d in out.type.tensor_type.shape.dim]
+              dtype = onnx.TensorProto.DataType.Name(out.type.tensor_type.elem_type)
+              print(f'      - {out.name}: {shape} ({dtype})')
+          "
+          done
+
+      - name: Generate Release Artifacts
+        id: release_artifacts
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          RELEASE_TAG="convert-${TIMESTAMP}"
+          echo "tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+          
+          # Create release package
+          mkdir -p release
+          cp -r outputs/* release/ 2>/dev/null || true
+          
+          # Create metadata
+          cat > release/MANIFEST.json << EOF
+          {
+            "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "workflow_run_id": "${{ github.run_id }}",
+            "commit_sha": "${{ github.sha }}",
+            "python_version": "${{ env.PYTHON_VERSION }}",
+            "onnxruntime_version": "${{ env.ONNXRUNTIME_VERSION }}"
+          }
+          EOF
+          
+          # Zip the package
+          cd release && zip -r ../${RELEASE_TAG}.zip . && cd ..
+          
+          echo "📦 Release package created: ${RELEASE_TAG}.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.release_artifacts.outputs.tag }}
+          name: "Model Conversion ${{ steps.release_artifacts.outputs.tag }}"
+          body: |
+            ## 🎯 Automated Model Conversion Results
+            
+            **Workflow Run**: ${{ github.run_id }}
+            **Commit**: ${{ github.sha }}
+            **Generated**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+            
+            ### 📦 Contents
+            - Converted ONNX models
+            - Input/Output metadata (JSON)
+            - Auto-generated Java inference templates
+            - Conversion logs
+            
+            ### 🔧 Environment
+            - Python: ${{ env.PYTHON_VERSION }}
+            - ONNX Runtime: ${{ env.ONNXRUNTIME_VERSION }}
+            - PyTorch: 2.1.2
+            - TensorFlow: 2.15.0
+          files: |
+            ${{ steps.release_artifacts.outputs.tag }}.zip
+          draft: false
+          prerelease: false
+
+      - name: Cleanup Temporary Files
+        if: always()
+        run: |
+          rm -rf outputs release *.zip
+          echo "🧹 Cleanup completed"
+
+      - name: Report Status
+        if: always()
+        run: |
+          echo "========================================"
+          echo "📊 Pipeline Status: ${{ job.status }}"
+          echo "========================================"

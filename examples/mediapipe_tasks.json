@@ -1,0 +1,42 @@
+{
+  "_comment": "MediaPipe Task 文件转换示例",
+  "tasks": [
+    {
+      "id": "mediapipe_pose",
+      "source_url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task",
+      "source_framework": "mediapipe",
+      "optimization_level": 2,
+      "custom_args": {
+        "convert_all_models": true,
+        "dequantize": true,
+        "opset_version": 17
+      },
+      "tags": ["mediapipe", "pose", "vision"],
+      "description": "MediaPipe Pose Landmarker (heavy model)"
+    },
+    {
+      "id": "mediapipe_face_mesh",
+      "source_url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
+      "source_framework": "mediapipe",
+      "optimization_level": 2,
+      "custom_args": {
+        "convert_all_models": true,
+        "dequantize": true
+      },
+      "tags": ["mediapipe", "face", "landmarks"],
+      "description": "MediaPipe Face Landmarker"
+    },
+    {
+      "id": "mediapipe_hand",
+      "source_url": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task",
+      "source_framework": "mediapipe",
+      "optimization_level": 2,
+      "custom_args": {
+        "convert_all_models": true,
+        "dequantize": true
+      },
+      "tags": ["mediapipe", "hand", "gesture"],
+      "description": "MediaPipe Hand Landmarker"
+    }
+  ]
+}

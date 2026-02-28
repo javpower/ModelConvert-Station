@@ -1,0 +1,70 @@
+{
+  "_comment": "高级批量转换示例 - 展示多种配置选项",
+  "global_config": {
+    "opset_version": 17,
+    "optimization_level": 2,
+    "generate_java_template": true
+  },
+  "tasks": [
+    {
+      "id": "yolov5s",
+      "source_url": "https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt",
+      "source_framework": "pytorch",
+      "optimization_level": 3,
+      "custom_args": {
+        "input_shape": [1, 3, 640, 640],
+        "input_names": ["images"],
+        "output_names": ["output", "output0"],
+        "dynamic_axes": {
+          "images": {0: "batch", 2: "height", 3: "width"},
+          "output": {0: "batch", 2: "anchors"}
+        }
+      },
+      "tags": ["pytorch", "yolo", "object-detection"],
+      "description": "YOLOv5s object detection model"
+    },
+    {
+      "id": "bert_base",
+      "source_url": "https://huggingface.co/bert-base-uncased/resolve/main/pytorch_model.bin",
+      "source_framework": "pytorch",
+      "optimization_level": 2,
+      "custom_args": {
+        "input_shape": [1, 128],
+        "input_names": ["input_ids", "attention_mask"],
+        "output_names": ["last_hidden_state", "pooler_output"],
+        "dynamic_axes": {
+          "input_ids": {0: "batch", 1: "sequence"},
+          "attention_mask": {0: "batch", 1: "sequence"},
+          "last_hidden_state": {0: "batch", 1: "sequence"}
+        }
+      },
+      "tags": ["pytorch", "bert", "nlp", "transformer"],
+      "description": "BERT base uncased for NLP tasks"
+    },
+    {
+      "id": "ssd_mobilenet",
+      "source_url": "http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v2_coco_2018_03_29.tar.gz",
+      "source_framework": "tensorflow",
+      "optimization_level": 2,
+      "custom_args": {
+        "input_names": ["image_tensor"],
+        "output_names": ["detection_boxes", "detection_scores", "detection_classes", "num_detections"],
+        "inputs_as_nchw": ["image_tensor"]
+      },
+      "tags": ["tensorflow", "ssd", "object-detection", "coco"],
+      "description": "SSD MobileNet v2 trained on COCO"
+    },
+    {
+      "id": "style_transfer",
+      "source_url": "https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2?tf-hub-format=compressed",
+      "source_framework": "tensorflow",
+      "optimization_level": 1,
+      "generate_java_template": false,
+      "custom_args": {
+        "large_model": true
+      },
+      "tags": ["tensorflow", "style-transfer", "generative"],
+      "description": "Arbitrary image stylization model"
+    }
+  ]
+}

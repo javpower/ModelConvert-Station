@@ -1,0 +1,30 @@
+{
+  "_comment": "TFLite 量化模型转换示例",
+  "tasks": [
+    {
+      "id": "mobilenet_quantized",
+      "source_url": "https://storage.googleapis.com/download.tensorflow.org/models/tflite/mobilenet_v1_1.0_224_quant.tflite",
+      "source_framework": "tflite",
+      "optimization_level": 2,
+      "custom_args": {
+        "opset_version": 17,
+        "dequantize": true,
+        "keep_channel_last": false
+      },
+      "tags": ["tflite", "quantized", "edge"],
+      "description": "INT8 quantized MobileNet v1 with dequantization"
+    },
+    {
+      "id": "efficientnet_lite",
+      "source_url": "https://storage.googleapis.com/mediapipe-models/image_classifier/efficientnet_lite0/float32/latest/efficientnet_lite0.tflite",
+      "source_framework": "tflite",
+      "optimization_level": 2,
+      "custom_args": {
+        "dequantize": false,
+        "keep_channel_last": false
+      },
+      "tags": ["tflite", "float32", "efficientnet"],
+      "description": "EfficientNet Lite0 float32 model"
+    }
+  ]
+}
