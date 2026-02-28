@@ -48,8 +48,11 @@
       "description": "Example: MediaPipe Pose Landmarker (replace with your URL)"
     },
     {
+      "_comment": "LOFTR indoor model - Google Drive link requires manual download due to access restrictions",
+      "_download_url": "https://drive.google.com/file/d/1M-VD35-qdB5Iw-AtbDBCKC7hPolFW9UY/view",
+      "_download_instructions": "Download from official LoFTR repo and upload to your own hosting, then update source_url",
       "id": "loftr_indoor",
-      "source_url": "https://drive.google.com/file/d/1M-VD35-qdB5Iw-AtbDBCKC7hPolFW9UY/view?usp=sharing",
+      "source_url": "https://drive.google.com/file/d/1M-VD35-qdB5Iw-AtbDBCKC7hPolFW9UY/view",
       "source_framework": "pytorch",
       "optimization_level": 1,
       "custom_args": {
@@ -69,11 +72,14 @@
         "model_architecture": "loftr"
       },
       "tags": ["loftr", "feature-matching", "indoor", "transformer"],
-      "description": "LOFTR indoor model for local feature matching. Requires kornia: pip install kornia"
+      "description": "LOFTR indoor model for local feature matching. Requires kornia. See _comment for download instructions."
     },
     {
+      "_comment": "LOFTR outdoor model - Google Drive link requires manual download due to access restrictions",
+      "_download_url": "https://drive.google.com/file/d/1xp-Ge8D5DvPqBvyTYnbYPtbJhA3Ozn-U/view",
+      "_download_instructions": "Download from official LoFTR repo and upload to your own hosting, then update source_url",
       "id": "loftr_outdoor",
-      "source_url": "https://drive.google.com/file/d/1xp-Ge8D5DvPqBvyTYnbYPtbJhA3Ozn-U/view?usp=sharing",
+      "source_url": "https://drive.google.com/file/d/1xp-Ge8D5DvPqBvyTYnbYPtbJhA3Ozn-U/view",
       "source_framework": "pytorch",
       "optimization_level": 1,
       "custom_args": {
@@ -93,7 +99,7 @@
         "model_architecture": "loftr"
       },
       "tags": ["loftr", "feature-matching", "outdoor", "transformer"],
-      "description": "LOFTR outdoor model for local feature matching. Requires kornia: pip install kornia"
+      "description": "LOFTR outdoor model for local feature matching. Requires kornia. See _comment for download instructions."
     }
   ]
 }

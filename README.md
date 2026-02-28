@@ -304,6 +304,47 @@ python engine/main.py --tasks tasks.json --output ./outputs
 
 ---
 
+## 🎯 特殊模型转换指南
+
+### LOFTR (Local Feature TRansformer)
+
+LOFTR 是双输入的特征匹配模型，支持多输入转换。
+
+**⚠️ 注意**: LOFTR 官方权重托管在 Google Drive，由于访问限制，**建议手动下载后上传到自有存储**：
+
+1. 从 [LoFTR 官方仓库](https://github.com/zju3dv/LoFTR) 下载权重文件 (`indoor_ds.ckpt`, `outdoor_ds.ckpt`)
+2. 上传到 Hugging Face Hub / GitHub Release / 自有服务器
+3. 更新 `tasks.json` 中的 `source_url`
+
+**LOFTR 配置示例**:
+
+```json
+{
+  "id": "my_loftr_indoor",
+  "source_url": "https://your-domain.com/indoor_ds.ckpt",
+  "source_framework": "pytorch",
+  "custom_args": {
+    "input_shapes": [[1, 1, 480, 640], [1, 1, 480, 640]],
+    "input_names": ["image0", "image1"],
+    "output_names": ["mkpts0_c", "mkpts1_c", "mconf", "m_bids"],
+    "model_architecture": "loftr",
+    "dynamic_axes": {
+      "image0": {"0": "batch_size", "2": "height", "3": "width"},
+      "image1": {"0": "batch_size", "2": "height", "3": "width"}
+    }
+  }
+}
+```
+
+**输入说明**:
+- 两张灰度图像: `[batch, 1, height, width]`
+- 推荐使用尺寸: `480x640` 或 `640x480`
+- 图像需要归一化到 `[0, 1]` 范围
+
+**依赖**: 需要安装 `kornia` 库来自动重建模型架构。
+
+---
+
 ## 🌐 URL 支持
 
 ### HTTP/HTTPS 直链
