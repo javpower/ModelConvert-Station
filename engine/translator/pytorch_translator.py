@@ -139,9 +139,13 @@ class PyTorchTranslator:
             # If it's still a dict, it's likely a state_dict
             if isinstance(model, dict):
                 logger.info("📋 Detected state_dict, attempting to reconstruct model...")
-                # We need model architecture - try common patterns
+                # Try to reconstruct model from torchvision
+                reconstructed_model = self._reconstruct_model_from_state_dict(model, input_path)
+                if reconstructed_model is not None:
+                    return reconstructed_model
                 raise ValueError(
                     "Checkpoint contains only state_dict. "
+                    "Could not auto-detect model architecture. "
                     "Please provide the complete model or specify architecture in custom_args."
                 )
             
@@ -153,6 +157,79 @@ class PyTorchTranslator:
         except Exception as e:
             logger.error(f"Failed to load PyTorch model: {e}")
             raise
+    
+    def _reconstruct_model_from_state_dict(
+        self,
+        state_dict: dict,
+        input_path: Path
+    ) -> Optional[torch.nn.Module]:
+        """Try to reconstruct model from state_dict using torchvision."""
+        
+        try:
+            import torchvision.models as models
+            
+            # Get model name from file path
+            model_name = input_path.stem.lower()
+            
+            # Map common model names to torchvision models
+            model_mapping = {
+                'resnet18': models.resnet18,
+                'resnet34': models.resnet34,
+                'resnet50': models.resnet50,
+                'resnet101': models.resnet101,
+                'resnet152': models.resnet152,
+                'alexnet': models.alexnet,
+                'vgg11': models.vgg11,
+                'vgg13': models.vgg13,
+                'vgg16': models.vgg16,
+                'vgg19': models.vgg19,
+                'densenet121': models.densenet121,
+                'densenet161': models.densenet161,
+                'densenet169': models.densenet169,
+                'densenet201': models.densenet201,
+                'mobilenet_v2': models.mobilenet_v2,
+                'mobilenet_v3_small': models.mobilenet_v3_small,
+                'mobilenet_v3_large': models.mobilenet_v3_large,
+                'efficientnet_b0': models.efficientnet_b0,
+                'efficientnet_b1': models.efficientnet_b1,
+                'efficientnet_b2': models.efficientnet_b2,
+                'efficientnet_b3': models.efficientnet_b3,
+                'efficientnet_b4': models.efficientnet_b4,
+                'efficientnet_b5': models.efficientnet_b5,
+                'efficientnet_b6': models.efficientnet_b6,
+                'efficientnet_b7': models.efficientnet_b7,
+                'squeezenet1_0': models.squeezenet1_0,
+                'squeezenet1_1': models.squeezenet1_1,
+                'shufflenet_v2_x0_5': models.shufflenet_v2_x0_5,
+                'shufflenet_v2_x1_0': models.shufflenet_v2_x1_0,
+                'shufflenet_v2_x1_5': models.shufflenet_v2_x1_5,
+                'shufflenet_v2_x2_0': models.shufflenet_v2_x2_0,
+            }
+            
+            # Find matching model
+            matched_model = None
+            for name, model_fn in model_mapping.items():
+                if name in model_name:
+                    logger.info(f"🔍 Auto-detected model architecture: {name}")
+                    matched_model = model_fn(weights=None)
+                    break
+            
+            if matched_model is None:
+                logger.warning(f"⚠️ Could not auto-detect model architecture from '{model_name}'")
+                return None
+            
+            # Load state_dict into model
+            matched_model.load_state_dict(state_dict, strict=False)
+            logger.info(f"✅ Successfully loaded state_dict into {matched_model.__class__.__name__}")
+            
+            return matched_model
+            
+        except ImportError:
+            logger.warning("⚠️ torchvision not available for model reconstruction")
+            return None
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to reconstruct model: {e}")
+            return None
     
     def _infer_input_shape(
         self,
