@@ -24,7 +24,7 @@
     },
     {
       "id": "example_tflite_mobilenet",
-      "source_url": "https://storage.googleapis.com/download.tensorflow.org/models/tflite/mobilenet_v1_1.0_224_quant.tflite",
+      "source_url": "https://github.com/tflite-soc/tensorflow-models/raw/master/mobilenet-v1/mobilenet_v1_1.0_224_quant.tflite",
       "source_framework": "tflite",
       "optimization_level": 2,
       "custom_args": {
@@ -36,7 +36,7 @@
     },
     {
       "id": "example_mediapipe_pose",
-      "source_url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task",
+      "source_url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
       "source_framework": "mediapipe",
       "optimization_level": 2,
       "custom_args": {
@@ -44,7 +44,7 @@
         "dequantize": true
       },
       "tags": ["example", "mediapipe", "pose"],
-      "description": "Example: MediaPipe Pose Landmarker (replace with your URL) "
+      "description": "Example: MediaPipe Pose Landmarker (replace with your URL)"
     }
   ]
 }

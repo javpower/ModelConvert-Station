@@ -244,19 +244,37 @@ class ConversionEngine:
         }
     
     async def process_tasks(self, tasks: List[ConversionTask]) -> List[ConversionTask]:
-        """Process multiple conversion tasks concurrently."""
+        """Process multiple conversion tasks with resource-aware scheduling."""
         
         self.stats['total'] = len(tasks)
         logger.info(f"🎯 Processing {len(tasks)} conversion task(s)")
         
-        # Process tasks with semaphore to limit concurrency
-        semaphore = asyncio.Semaphore(2)  # Max 2 concurrent conversions
+        # Separate TensorFlow-based tasks (TFLite, MediaPipe) from others
+        # to avoid memory pressure and segfaults from concurrent tf2onnx conversions
+        tf_tasks = [t for t in tasks if t.source_framework in ('tflite', 'mediapipe')]
+        other_tasks = [t for t in tasks if t.source_framework not in ('tflite', 'mediapipe')]
         
-        async def process_with_limit(task: ConversionTask) -> ConversionTask:
-            async with semaphore:
-                return await self._process_single_task(task)
+        results = []
         
-        results = await asyncio.gather(*[process_with_limit(t) for t in tasks])
+        # Process non-TF tasks concurrently with limited parallelism
+        if other_tasks:
+            semaphore = asyncio.Semaphore(2)
+            async def process_with_limit(task: ConversionTask) -> ConversionTask:
+                async with semaphore:
+                    return await self._process_single_task(task)
+            
+            other_results = await asyncio.gather(*[process_with_limit(t) for t in other_tasks])
+            results.extend(other_results)
+        
+        # Process TF-based tasks sequentially to prevent segfaults
+        # tf2onnx can crash when multiple conversions run simultaneously
+        if tf_tasks:
+            logger.info(f"🔄 Processing {len(tf_tasks)} TensorFlow-based task(s) sequentially")
+            for task in tf_tasks:
+                result = await self._process_single_task(task)
+                results.append(result)
+                # Small delay to allow memory cleanup between conversions
+                await asyncio.sleep(0.5)
         
         # Print summary
         logger.info("=" * 50)

@@ -25,25 +25,25 @@ onnx-simplifier==0.4.35
 # Protocol Buffers
 protobuf==4.25.1
 
-# Numerical computing
+# Numerical computing - pinned for TensorFlow 2.15.0 compatibility
 numpy==1.24.3
 
 # Image processing
 pillow==10.1.0
 
-# PyTorch (CPU version for CI)
-torch==2.1.2
-torchvision==0.16.2
---index-url https://download.pytorch.org/whl/cpu
-
-# ml-dtypes - pinned for compatibility with numpy 1.24.3 and tensorflow 2.15.0
-ml-dtypes==0.2.0
+# ml-dtypes - must be pinned before tensorflow to avoid conflicts
+ml-dtypes==0.3.2
 
 # TensorFlow (CPU version for faster install)
 tensorflow-cpu==2.15.0
 
 # TensorFlow to ONNX converter
-tf2onnx==1.16.0
+tf2onnx==1.16.1
+
+# PyTorch (CPU version for CI) - must be installed after numpy
+torch==2.1.2+cpu
+torchvision==0.16.2+cpu
+--index-url https://download.pytorch.org/whl/cpu
 
 # MediaPipe for task file parsing
 mediapipe==0.10.8

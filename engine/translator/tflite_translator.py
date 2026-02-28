@@ -81,10 +81,9 @@ class TFLiteTranslator:
         """Convert using tf2onnx (recommended method)."""
         
         try:
-            import tf2onnx
             import tensorflow as tf
             
-            # Load TFLite model
+            # Load TFLite model to get metadata
             interpreter = tf.lite.Interpreter(model_path=str(input_path))
             interpreter.allocate_tensors()
             
@@ -100,30 +99,86 @@ class TFLiteTranslator:
             for out in output_details:
                 logger.info(f"      - {out['name']}: {out['shape']} ({out['dtype'].__name__})")
             
-            # Convert using tf2onnx
-            model_proto, _ = tf2onnx.convert.from_tflite(
-                str(input_path),
-                opset=config.opset_version,
-                input_names=config.input_names,
-                output_names=config.output_names,
+            # Use subprocess to isolate tf2onnx conversion and prevent segfaults
+            result = await self._convert_with_subprocess(
+                input_path, output_path, config, 
+                len(input_details), len(output_details)
             )
             
-            # Save model
-            onnx.save(model_proto, str(output_path))
+            return result
+            
+        except ImportError:
+            raise ImportError("tensorflow not available for TFLite conversion")
+    
+    async def _convert_with_subprocess(
+        self,
+        input_path: Path,
+        output_path: Path,
+        config: TFLiteConfig,
+        num_inputs: int,
+        num_outputs: int
+    ) -> Dict[str, Any]:
+        """Run tf2onnx conversion in a subprocess to prevent segfaults."""
+        
+        import asyncio
+        import subprocess
+        import sys
+        import os
+        
+        # Build command for tf2onnx CLI
+        cmd = [
+            sys.executable, '-m', 'tf2onnx.convert',
+            '--tflite', str(input_path),
+            '--output', str(output_path),
+            '--opset', str(config.opset_version),
+        ]
+        
+        # Add input/output names if specified
+        if config.input_names:
+            cmd.extend(['--inputs'] + config.input_names)
+        if config.output_names:
+            cmd.extend(['--outputs'] + config.output_names)
+        
+        logger.info(f"   Running tf2onnx conversion in subprocess...")
+        
+        # Run conversion with timeout
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env={**os.environ, 'TF_CPP_MIN_LOG_LEVEL': '2'}
+            )
+            
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), 
+                timeout=300  # 5 minute timeout
+            )
+            
+            if process.returncode != 0:
+                stderr_str = stderr.decode('utf-8', errors='ignore')
+                raise RuntimeError(f"tf2onnx conversion failed: {stderr_str}")
+            
+            # Verify output file was created
+            if not output_path.exists():
+                raise RuntimeError("Conversion completed but output file not found")
             
             logger.info(f"✅ TFLite conversion successful: {output_path.name}")
             
             return {
                 'status': 'success',
                 'method': 'tf2onnx',
-                'num_inputs': len(input_details),
-                'num_outputs': len(output_details),
+                'num_inputs': num_inputs,
+                'num_outputs': num_outputs,
                 'opset_version': config.opset_version,
                 'output_path': str(output_path),
             }
             
-        except ImportError:
-            raise ImportError("tf2onnx not available for TFLite conversion")
+        except asyncio.TimeoutError:
+            process.kill()
+            raise RuntimeError("Conversion timed out after 5 minutes")
+        except Exception as e:
+            raise RuntimeError(f"tf2onnx conversion failed: {e}")
     
     async def _convert_manual(
         self,
