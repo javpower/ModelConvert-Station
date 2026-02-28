@@ -8,6 +8,8 @@ Supports both scripted and traced models, with automatic shape inference.
 
 import logging
 import tempfile
+import copy
+import sys
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass
@@ -17,6 +19,78 @@ import torch.onnx
 import onnx
 
 logger = logging.getLogger('ModelConvert.PyTorch')
+
+
+class LoFTRWrapper(torch.nn.Module):
+    """
+    Wrapper for LoFTR model to make it ONNX-exportable.
+    Based on https://github.com/oooooha/loftr2onnx
+    
+    The original LoFTR uses a dict-based input/output which is not compatible
+    with ONNX export. This wrapper converts it to tensor-based input/output.
+    """
+    
+    def __init__(self, loftr_model):
+        super().__init__()
+        self.model = loftr_model
+        
+    def forward(self, image0: torch.Tensor, image1: torch.Tensor):
+        """
+        Forward pass compatible with ONNX export.
+        
+        Args:
+            image0: First image tensor [B, 1, H, W]
+            image1: Second image tensor [B, 1, H, W]
+            
+        Returns:
+            Tuple of (keypoints0, keypoints1, confidence)
+        """
+        from einops.einops import rearrange
+        
+        data = {
+            "image0": image0,
+            "image1": image1,
+            "bs": image0.size(0),
+            "hw0_i": image0.shape[2:],
+            "hw1_i": image1.shape[2:],
+        }
+        
+        # Backbone feature extraction
+        if data["hw0_i"] == data["hw1_i"]:
+            feats_c, feats_f = self.model.backbone(
+                torch.cat([data["image0"], data["image1"]], dim=0)
+            )
+            (feat_c0, feat_c1), (feat_f0, feat_f1) = feats_c.split(data["bs"]), feats_f.split(data["bs"])
+        else:
+            (feat_c0, feat_f0), (feat_c1, feat_f1) = self.model.backbone(data["image0"]), self.model.backbone(data["image1"])
+        
+        data.update({
+            "hw0_c": feat_c0.shape[2:],
+            "hw1_c": feat_c1.shape[2:],
+            "hw0_f": feat_f0.shape[2:],
+            "hw1_f": feat_f1.shape[2:],
+        })
+        
+        # Coarse-level LoFTR module
+        feat_c0 = rearrange(self.model.pos_encoding(feat_c0), "n c h w -> n (h w) c")
+        feat_c1 = rearrange(self.model.pos_encoding(feat_c1), "n c h w -> n (h w) c")
+        
+        feat_c0, feat_c1 = self.model.loftr_coarse(feat_c0, feat_c1, None, None)
+        
+        # Match coarse-level
+        self.model.coarse_matching(feat_c0, feat_c1, data, mask_c0=None, mask_c1=None)
+        
+        # Fine-level refinement
+        feat_f0_unfold, feat_f1_unfold = self.model.fine_preprocess(feat_f0, feat_f1, feat_c0, feat_c1, data)
+        
+        if feat_f0_unfold.size(0) != 0:
+            feat_f0_unfold, feat_f1_unfold = self.model.loftr_fine(feat_f0_unfold, feat_f1_unfold)
+        
+        # Match fine-level
+        self.model.fine_matching(feat_f0_unfold, feat_f1_unfold, data)
+        
+        # Return as tuple for ONNX compatibility
+        return data["mkpts0_f"], data["mkpts1_f"], data["mconf"]
 
 
 @dataclass
@@ -274,7 +348,7 @@ class PyTorchTranslator:
             return None
     
     def _reconstruct_loftr_model(self, state_dict: dict) -> Optional[torch.nn.Module]:
-        """Reconstruct LOFTR model from state_dict."""
+        """Reconstruct LOFTR model from state_dict with ONNX-compatible wrapper."""
         
         try:
             logger.info("🔍 Attempting to reconstruct LOFTR model...")
@@ -301,7 +375,11 @@ class PyTorchTranslator:
                 
                 model.load_state_dict(state_dict, strict=False)
                 logger.info("✅ Successfully loaded LOFTR state_dict")
-                return model
+                
+                # Wrap with ONNX-compatible wrapper
+                logger.info("🔄 Wrapping LOFTR with ONNX-compatible wrapper...")
+                wrapped_model = LoFTRWrapper(model)
+                return wrapped_model
                 
             except ImportError:
                 logger.warning("⚠️ kornia not available, trying local LoFTR implementation...")
@@ -315,7 +393,10 @@ class PyTorchTranslator:
                 from src.loftr import LoFTR as LocalLoFTR, default_cfg
                 logger.info("📦 Using local src.loftr.LoFTR")
                 
-                model = LocalLoFTR(config=default_cfg)
+                # Fix temp_bug_fix for coarse matching
+                _cfg = copy.deepcopy(default_cfg)
+                _cfg["coarse"]["temp_bug_fix"] = True
+                model = LocalLoFTR(config=_cfg)
                 
                 # Handle checkpoint format
                 if 'state_dict' in state_dict:
@@ -325,7 +406,11 @@ class PyTorchTranslator:
                 
                 model.load_state_dict(state_dict, strict=False)
                 logger.info("✅ Successfully loaded LOFTR state_dict from local implementation")
-                return model
+                
+                # Wrap with ONNX-compatible wrapper
+                logger.info("🔄 Wrapping LOFTR with ONNX-compatible wrapper...")
+                wrapped_model = LoFTRWrapper(model)
+                return wrapped_model
                 
             except ImportError:
                 logger.warning("⚠️ Local LoFTR implementation not found")

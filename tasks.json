@@ -58,15 +58,14 @@
       "custom_args": {
         "input_shapes": [[1, 1, 480, 640], [1, 1, 480, 640]],
         "input_names": ["image0", "image1"],
-        "output_names": ["mkpts0_c", "mkpts1_c", "mconf", "m_bids"],
+        "output_names": ["keypoints0", "keypoints1", "confidence"],
         "opset_version": 17,
         "dynamic_axes": {
           "image0": {"0": "batch_size", "2": "height", "3": "width"},
           "image1": {"0": "batch_size", "2": "height", "3": "width"},
-          "mkpts0_c": {"0": "num_matches"},
-          "mkpts1_c": {"0": "num_matches"},
-          "mconf": {"0": "num_matches"},
-          "m_bids": {"0": "num_matches"}
+          "keypoints0": {"0": "num_keypoints"},
+          "keypoints1": {"0": "num_keypoints"},
+          "confidence": {"0": "num_keypoints"}
         },
         "do_constant_folding": false,
         "model_architecture": "loftr"
@@ -85,15 +84,14 @@
       "custom_args": {
         "input_shapes": [[1, 1, 480, 640], [1, 1, 480, 640]],
         "input_names": ["image0", "image1"],
-        "output_names": ["mkpts0_c", "mkpts1_c", "mconf", "m_bids"],
+        "output_names": ["keypoints0", "keypoints1", "confidence"],
         "opset_version": 17,
         "dynamic_axes": {
           "image0": {"0": "batch_size", "2": "height", "3": "width"},
           "image1": {"0": "batch_size", "2": "height", "3": "width"},
-          "mkpts0_c": {"0": "num_matches"},
-          "mkpts1_c": {"0": "num_matches"},
-          "mconf": {"0": "num_matches"},
-          "m_bids": {"0": "num_matches"}
+          "keypoints0": {"0": "num_keypoints"},
+          "keypoints1": {"0": "num_keypoints"},
+          "confidence": {"0": "num_keypoints"}
         },
         "do_constant_folding": false,
         "model_architecture": "loftr"
