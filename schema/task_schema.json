@@ -99,6 +99,21 @@
               "minItems": 1,
               "maxItems": 5
             },
+            "input_shapes": {
+              "type": "array",
+              "description": "Multiple input tensor shapes for multi-input models like LOFTR",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "minItems": 1,
+                "maxItems": 5
+              },
+              "minItems": 1,
+              "maxItems": 10
+            },
             "input_names": {
               "type": "array",
               "description": "Names of input tensors",

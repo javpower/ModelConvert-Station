@@ -23,6 +23,7 @@ logger = logging.getLogger('ModelConvert.PyTorch')
 class PyTorchConfig:
     """Configuration for PyTorch to ONNX conversion."""
     input_shape: Optional[List[int]] = None
+    input_shapes: Optional[List[List[int]]] = None  # Support multiple inputs
     input_names: List[str] = None
     output_names: List[str] = None
     opset_version: int = 17
@@ -35,6 +36,20 @@ class PyTorchConfig:
             self.input_names = ['input']
         if self.output_names is None:
             self.output_names = ['output']
+        # Convert string keys to int keys in dynamic_axes (from JSON)
+        if self.dynamic_axes is not None:
+            converted_axes = {}
+            for input_name, axes in self.dynamic_axes.items():
+                converted_axes[input_name] = {int(k): v for k, v in axes.items()}
+            self.dynamic_axes = converted_axes
+    
+    def get_input_shapes(self) -> List[List[int]]:
+        """Get list of input shapes, supporting both single and multiple inputs."""
+        if self.input_shapes is not None:
+            return self.input_shapes
+        if self.input_shape is not None:
+            return [self.input_shape]
+        return [[1, 3, 224, 224]]  # default fallback
 
 
 class PyTorchTranslator:
@@ -64,6 +79,7 @@ class PyTorchTranslator:
         custom_args = custom_args or {}
         config = PyTorchConfig(
             input_shape=custom_args.get('input_shape'),
+            input_shapes=custom_args.get('input_shapes'),
             input_names=custom_args.get('input_names', ['input']),
             output_names=custom_args.get('output_names', ['output']),
             opset_version=custom_args.get('opset_version', 17),
@@ -77,18 +93,29 @@ class PyTorchTranslator:
         # Load model
         model = self._load_model(input_path, custom_args)
         
-        # Determine input shape
-        if not config.input_shape:
-            config.input_shape = self._infer_input_shape(model, custom_args)
+        # Determine input shapes (support multiple inputs)
+        input_shapes = config.get_input_shapes()
+        if not input_shapes or input_shapes == [[1, 3, 224, 224]]:
+            # Try to infer from model
+            inferred_shape = self._infer_input_shape(model, custom_args)
+            input_shapes = [inferred_shape]
         
-        logger.info(f"📐 Input shape: {config.input_shape}")
+        logger.info(f"📐 Input shapes: {input_shapes}")
+        logger.info(f"📐 Input names: {config.input_names}")
         
-        # Create dummy input
-        dummy_input = torch.randn(config.input_shape)
+        # Create dummy inputs (support multiple inputs)
+        dummy_inputs = tuple(torch.randn(shape) for shape in input_shapes)
+        if len(dummy_inputs) == 1:
+            dummy_input = dummy_inputs[0]
+        else:
+            dummy_input = dummy_inputs
         
         # Handle GPU models on CPU environment
         if torch.cuda.is_available():
-            dummy_input = dummy_input.cuda()
+            if isinstance(dummy_input, tuple):
+                dummy_input = tuple(d.cuda() for d in dummy_input)
+            else:
+                dummy_input = dummy_input.cuda()
             model = model.cuda()
         
         model.eval()
@@ -112,7 +139,8 @@ class PyTorchTranslator:
             return {
                 'status': 'success',
                 'output_path': str(output_path),
-                'input_shape': config.input_shape,
+                'input_shape': input_shapes[0] if len(input_shapes) == 1 else input_shapes,
+                'input_shapes': input_shapes,
                 'opset_version': config.opset_version,
             }
             
@@ -168,17 +196,22 @@ class PyTorchTranslator:
         input_path: Path,
         model_arch: Optional[str] = None
     ) -> Optional[torch.nn.Module]:
-        """Try to reconstruct model from state_dict using torchvision."""
+        """Try to reconstruct model from state_dict using torchvision or custom architectures."""
         
+        # Get model name from custom_args or file path
+        if model_arch:
+            model_name = model_arch.lower()
+            logger.info(f"📋 Using specified model architecture: {model_arch}")
+        else:
+            model_name = input_path.stem.lower()
+        
+        # Try LOFTR first (special handling for feature matching models)
+        if 'loftr' in model_name:
+            return self._reconstruct_loftr_model(state_dict)
+        
+        # Try torchvision models
         try:
             import torchvision.models as models
-            
-            # Get model name from custom_args or file path
-            if model_arch:
-                model_name = model_arch.lower()
-                logger.info(f"📋 Using specified model architecture: {model_arch}")
-            else:
-                model_name = input_path.stem.lower()
             
             # Map common model names to torchvision models
             model_mapping = {
@@ -238,6 +271,71 @@ class PyTorchTranslator:
             return None
         except Exception as e:
             logger.warning(f"⚠️ Failed to reconstruct model: {e}")
+            return None
+    
+    def _reconstruct_loftr_model(self, state_dict: dict) -> Optional[torch.nn.Module]:
+        """Reconstruct LOFTR model from state_dict."""
+        
+        try:
+            logger.info("🔍 Attempting to reconstruct LOFTR model...")
+            
+            # Try importing from kornia (recommended way)
+            try:
+                from kornia.feature import LoFTR
+                logger.info("📦 Using kornia.feature.LoFTR")
+                
+                # Determine model type from state_dict keys
+                # LOFTR-DS (Dual Softmax) vs LOFTR-OT (Optimal Transport)
+                is_ot = any('fsrc' in k or 'fref' in k for k in state_dict.keys())
+                
+                if is_ot:
+                    logger.info("📋 Detected LOFTR-OT (Optimal Transport) variant")
+                    model = LoFTR(pretrained=None, config={'match_coarse': {'thr': 0.2}})
+                else:
+                    logger.info("📋 Detected LOFTR-DS (Dual Softmax) variant")
+                    model = LoFTR(pretrained=None)
+                
+                # Load state_dict (handle both direct and nested formats)
+                if 'state_dict' in state_dict:
+                    state_dict = state_dict['state_dict']
+                
+                model.load_state_dict(state_dict, strict=False)
+                logger.info("✅ Successfully loaded LOFTR state_dict")
+                return model
+                
+            except ImportError:
+                logger.warning("⚠️ kornia not available, trying local LoFTR implementation...")
+            
+            # Fallback: Try importing from local LoFTR package
+            try:
+                # Try the official LoFTR repo structure
+                import sys
+                sys.path.insert(0, str(Path.cwd()))
+                
+                from src.loftr import LoFTR as LocalLoFTR, default_cfg
+                logger.info("📦 Using local src.loftr.LoFTR")
+                
+                model = LocalLoFTR(config=default_cfg)
+                
+                # Handle checkpoint format
+                if 'state_dict' in state_dict:
+                    state_dict = state_dict['state_dict']
+                elif 'model' in state_dict:
+                    state_dict = state_dict['model']
+                
+                model.load_state_dict(state_dict, strict=False)
+                logger.info("✅ Successfully loaded LOFTR state_dict from local implementation")
+                return model
+                
+            except ImportError:
+                logger.warning("⚠️ Local LoFTR implementation not found")
+                pass
+            
+            logger.error("❌ Could not reconstruct LOFTR model. Please install kornia: pip install kornia")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to reconstruct LOFTR model: {e}")
             return None
     
     def _infer_input_shape(
@@ -300,12 +398,16 @@ class PyTorchTranslator:
             output_names=config.output_names,
             opset_version=config.opset_version,
             dynamic_axes=config.dynamic_axes,
+            do_constant_folding=config.do_constant_folding,
         )
+        
+        input_shapes = [list(t.shape) for t in example_inputs] if isinstance(example_inputs, tuple) else [list(example_inputs.shape)]
         
         return {
             'status': 'success',
             'method': 'trace',
             'output_path': str(output_path),
+            'input_shapes': input_shapes,
         }
     
     async def convert_with_scripting(
@@ -322,8 +424,12 @@ class PyTorchTranslator:
         
         scripted_model = torch.jit.script(model)
         
-        # For scripted models, we need example inputs
-        dummy_input = torch.randn(config.input_shape or [1, 3, 224, 224])
+        # For scripted models, we need example inputs (support multiple inputs)
+        input_shapes = config.get_input_shapes()
+        if len(input_shapes) == 1:
+            dummy_input = torch.randn(input_shapes[0])
+        else:
+            dummy_input = tuple(torch.randn(shape) for shape in input_shapes)
         
         torch.onnx.export(
             scripted_model,
@@ -333,12 +439,14 @@ class PyTorchTranslator:
             output_names=config.output_names,
             opset_version=config.opset_version,
             dynamic_axes=config.dynamic_axes,
+            do_constant_folding=config.do_constant_folding,
         )
         
         return {
             'status': 'success',
             'method': 'script',
             'output_path': str(output_path),
+            'input_shapes': input_shapes,
         }
     
     async def validate_onnx(self, onnx_path: Path) -> Dict[str, Any]:

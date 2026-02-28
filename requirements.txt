@@ -48,3 +48,7 @@ torchvision==0.16.2+cpu
 
 # MediaPipe for task file parsing
 mediapipe==0.10.8
+
+# Kornia for LOFTR and other feature matching models
+kornia==0.7.0
+einops==0.7.0
