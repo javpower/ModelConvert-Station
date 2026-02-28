@@ -351,7 +351,7 @@ class ConversionEngine:
                         optimized_path = task_output_dir / f"{task_id}_optimized.onnx"
                         
                         await self.optimizer.simplify(
-                            input_path=conversion_result['output_path'],
+                            input_path=Path(conversion_result['output_path']),
                             output_path=optimized_path,
                             level=task.optimization_level
                         )
