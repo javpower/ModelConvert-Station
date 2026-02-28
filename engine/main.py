@@ -105,8 +105,10 @@ class StreamDownloader:
         return output_path
     
     async def _download_gdrive(self, url: str, output_path: Path, progress_callback: Optional[Callable] = None) -> Path:
-        """Handle Google Drive download with confirmation token."""
+        """Handle Google Drive download using gdown library for reliability."""
         import re
+        import gdown
+        import asyncio
         
         # Extract file ID
         file_id_match = re.search(r'(?:id=|/d/|/file/d/)([\w-]+)', url)
@@ -114,32 +116,23 @@ class StreamDownloader:
             raise ValueError(f"Cannot extract Google Drive file ID from: {url}")
         
         file_id = file_id_match.group(1)
-        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        
         logger.info(f"📥 Downloading from Google Drive: {file_id}")
         
-        # First request to get confirmation token
-        async with self.session.get(download_url) as response:
-            if 'confirm' in str(response.url):
-                # Large file confirmation needed
-                confirm_token = None
-                for key, value in response.cookies.items():
-                    if key.startswith('download_warning'):
-                        confirm_token = value.value
-                        break
-                
-                if confirm_token:
-                    download_url = f"{download_url}&confirm={confirm_token}"
+        # Use gdown for reliable Google Drive downloads (handles large files, confirmation pages)
+        # Run in executor since gdown is synchronous
+        loop = asyncio.get_event_loop()
         
-        # Actual download
-        async with self.session.get(download_url) as response:
-            response.raise_for_status()
-            
-            async with aiofiles.open(output_path, 'wb') as f:
-                async for chunk in response.content.iter_chunked(self.chunk_size):
-                    await f.write(chunk)
+        def _download_with_gdown():
+            download_url = f"https://drive.google.com/uc?id={file_id}"
+            gdown.download(download_url, str(output_path), quiet=True, fuzzy=True)
         
-        logger.info(f"✅ Downloaded from Google Drive: {output_path.name}")
+        await loop.run_in_executor(None, _download_with_gdown)
+        
+        if not output_path.exists() or output_path.stat().st_size == 0:
+            raise ValueError(f"Failed to download from Google Drive: {url}")
+        
+        file_size_mb = output_path.stat().st_size / 1024 / 1024
+        logger.info(f"✅ Downloaded from Google Drive: {output_path.name} ({file_size_mb:.2f} MB)")
         return output_path
     
     async def sniff_framework(self, file_path: Path) -> Optional[str]:
