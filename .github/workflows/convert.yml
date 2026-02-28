@@ -68,6 +68,9 @@ jobs:
           # MediaPipe for task file parsing
           pip install mediapipe==0.10.8
           
+          # tflite-runtime for manual conversion fallback
+          pip install tflite-runtime==2.13.0
+          
           # Verify numpy version is still correct (prevent accidental upgrades)
           pip install --force-reinstall numpy==1.24.3
 

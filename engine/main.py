@@ -330,17 +330,41 @@ class ConversionEngine:
                 # Step 5: Optimize ONNX (if enabled)
                 if task.optimization_level > 0:
                     logger.info(f"[{task_id}] ⚡ Optimizing ONNX (level {task.optimization_level})")
-                    optimized_path = task_output_dir / f"{task_id}_optimized.onnx"
                     
-                    await self.optimizer.simplify(
-                        input_path=conversion_result['output_path'],
-                        output_path=optimized_path,
-                        level=task.optimization_level
-                    )
-                    
-                    final_onnx_path = optimized_path
+                    # Handle MediaPipe multi-model output
+                    if task.source_framework == 'mediapipe':
+                        final_onnx_paths = []
+                        for model_info in conversion_result.get('converted_models', []):
+                            if model_info['status'] == 'success':
+                                model_path = Path(model_info['output_path'])
+                                optimized_path = model_path.parent / f"{model_path.stem}_optimized.onnx"
+                                
+                                await self.optimizer.simplify(
+                                    input_path=model_path,
+                                    output_path=optimized_path,
+                                    level=task.optimization_level
+                                )
+                                final_onnx_paths.append(optimized_path)
+                        
+                        final_onnx_path = final_onnx_paths[0] if final_onnx_paths else None
+                    else:
+                        optimized_path = task_output_dir / f"{task_id}_optimized.onnx"
+                        
+                        await self.optimizer.simplify(
+                            input_path=conversion_result['output_path'],
+                            output_path=optimized_path,
+                            level=task.optimization_level
+                        )
+                        
+                        final_onnx_path = optimized_path
                 else:
-                    final_onnx_path = conversion_result['output_path']
+                    if task.source_framework == 'mediapipe':
+                        # Get first successful model's path
+                        converted_models = conversion_result.get('converted_models', [])
+                        successful_models = [m for m in converted_models if m['status'] == 'success']
+                        final_onnx_path = Path(successful_models[0]['output_path']) if successful_models else None
+                    else:
+                        final_onnx_path = conversion_result['output_path']
                 
                 # Step 6: Extract metadata
                 metadata = await self._extract_metadata(final_onnx_path)
