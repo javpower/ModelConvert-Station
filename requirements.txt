@@ -32,7 +32,8 @@ numpy==1.24.3
 pillow==10.1.0
 
 # ml-dtypes - must be pinned before tensorflow to avoid conflicts
-ml-dtypes==0.3.2
+# TensorFlow 2.15.0 requires ml-dtypes~=0.2.0
+ml-dtypes==0.2.0
 
 # TensorFlow (CPU version for faster install)
 tensorflow-cpu==2.15.0
