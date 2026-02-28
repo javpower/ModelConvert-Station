@@ -63,7 +63,7 @@ jobs:
           
           # TensorFlow ecosystem (CPU only for faster install)
           # Pin ml-dtypes to ensure compatibility with numpy 1.24.3 and tensorflow 2.15.0
-          pip install ml-dtypes==0.3.2 tensorflow-cpu==2.15.0 tf2onnx==1.16.1
+          pip install ml-dtypes==0.2.0 tensorflow-cpu==2.15.0 tf2onnx==1.16.1
           
           # MediaPipe for task file parsing
           pip install mediapipe==0.10.8
