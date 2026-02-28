@@ -46,52 +46,6 @@
       },
       "tags": ["example", "mediapipe", "pose"],
       "description": "Example: MediaPipe Pose Landmarker (replace with your URL)"
-    },
-    {
-      "id": "loftr_indoor",
-      "source_url": "https://drive.google.com/file/d/1M-VD35-qdB5Iw-AtbDBCKC7hPolFW9UY/view",
-      "source_framework": "pytorch",
-      "optimization_level": 1,
-      "custom_args": {
-        "input_shapes": [[1, 1, 480, 640], [1, 1, 480, 640]],
-        "input_names": ["image0", "image1"],
-        "output_names": ["keypoints0", "keypoints1", "confidence"],
-        "opset_version": 17,
-        "dynamic_axes": {
-          "image0": {"0": "batch_size", "2": "height", "3": "width"},
-          "image1": {"0": "batch_size", "2": "height", "3": "width"},
-          "keypoints0": {"0": "num_keypoints"},
-          "keypoints1": {"0": "num_keypoints"},
-          "confidence": {"0": "num_keypoints"}
-        },
-        "do_constant_folding": false,
-        "model_architecture": "loftr"
-      },
-      "tags": ["loftr", "feature-matching", "indoor", "transformer"],
-      "description": "LOFTR indoor model for local feature matching. Requires kornia. See _comment for download instructions."
-    },
-    {
-      "id": "loftr_outdoor",
-      "source_url": "https://drive.google.com/file/d/1xp-Ge8D5DvPqBvyTYnbYPtbJhA3Ozn-U/view",
-      "source_framework": "pytorch",
-      "optimization_level": 1,
-      "custom_args": {
-        "input_shapes": [[1, 1, 480, 640], [1, 1, 480, 640]],
-        "input_names": ["image0", "image1"],
-        "output_names": ["keypoints0", "keypoints1", "confidence"],
-        "opset_version": 17,
-        "dynamic_axes": {
-          "image0": {"0": "batch_size", "2": "height", "3": "width"},
-          "image1": {"0": "batch_size", "2": "height", "3": "width"},
-          "keypoints0": {"0": "num_keypoints"},
-          "keypoints1": {"0": "num_keypoints"},
-          "confidence": {"0": "num_keypoints"}
-        },
-        "do_constant_folding": false,
-        "model_architecture": "loftr"
-      },
-      "tags": ["loftr", "feature-matching", "outdoor", "transformer"],
-      "description": "LOFTR outdoor model for local feature matching. Requires kornia. See _comment for download instructions."
     }
   ]
 }
