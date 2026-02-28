@@ -62,10 +62,14 @@ jobs:
           pip install torch==2.1.2 torchvision==0.16.2 --index-url https://download.pytorch.org/whl/cpu
           
           # TensorFlow ecosystem (CPU only for faster install)
-          pip install tensorflow-cpu==2.15.0 tf2onnx==1.16.0
+          # Pin ml-dtypes to ensure compatibility with numpy 1.24.3
+          pip install ml-dtypes==0.2.0 tensorflow-cpu==2.15.0 tf2onnx==1.16.0
           
           # MediaPipe for task file parsing
           pip install mediapipe==0.10.8
+          
+          # Verify numpy version is still correct (prevent accidental upgrades)
+          pip install --force-reinstall numpy==1.24.3
 
       - name: Validate Task Schema
         id: validate

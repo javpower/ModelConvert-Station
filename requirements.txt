@@ -36,6 +36,9 @@ torch==2.1.2
 torchvision==0.16.2
 --index-url https://download.pytorch.org/whl/cpu
 
+# ml-dtypes - pinned for compatibility with numpy 1.24.3 and tensorflow 2.15.0
+ml-dtypes==0.2.0
+
 # TensorFlow (CPU version for faster install)
 tensorflow-cpu==2.15.0
 
