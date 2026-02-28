@@ -261,7 +261,7 @@ class TensorFlowTranslator:
                         if node.name not in all_outputs:
                             output_nodes.append(node.name)
                     
-                    config.output_names = output_names[:5] if len(output_nodes) > 5 else output_nodes
+                    config.output_names = output_nodes[:5] if len(output_nodes) > 5 else output_nodes
             
             logger.info(f"   Inputs: {config.input_names}")
             logger.info(f"   Outputs: {config.output_names}")
@@ -294,11 +294,11 @@ class TensorFlowTranslator:
             logger.error(f"❌ Frozen graph conversion failed: {e}")
             raise
     
-    def _load_frozen_graph(self, pb_path: Path) -> tf.GraphDef:
+    def _load_frozen_graph(self, pb_path: Path) -> tf.compat.v1.GraphDef:
         """Load frozen graph from .pb file."""
         
         with tf.io.gfile.GFile(str(pb_path), 'rb') as f:
-            graph_def = tf.GraphDef()
+            graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(f.read())
         
         return graph_def
