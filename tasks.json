@@ -44,7 +44,7 @@
         "dequantize": true
       },
       "tags": ["example", "mediapipe", "pose"],
-      "description": "Example: MediaPipe Pose Landmarker (replace with your URL)"
+      "description": "Example: MediaPipe Pose Landmarker (replace with your URL) "
     }
   ]
 }
